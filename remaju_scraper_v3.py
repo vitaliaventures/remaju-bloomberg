@@ -16,9 +16,19 @@ import fitz  # PyMuPDF
 import io
 from PIL import Image
 
-pytesseract.pytesseract.tesseract_cmd = r"D:\2026-I\tesseract.exe"  
+# Ruta a tesseract.exe: SOLO hace falta en Windows si no está en el PATH
+# del sistema. En Linux (GitHub Actions, cualquier servidor) NO se toca
+# nada -- pytesseract encuentra solo el 'tesseract' que se instala con
+# `apt-get install tesseract-ocr` (así está configurado el workflow).
+# Si en tu Windows necesitas apuntarlo a mano, define la variable de
+# entorno TESSERACT_CMD_PATH antes de correr el script.
+_ruta_tesseract_manual = os.environ.get("TESSERACT_CMD_PATH")
+if _ruta_tesseract_manual:
+    pytesseract.pytesseract.tesseract_cmd = _ruta_tesseract_manual
 
-POPPLER_PATH = r"D:\Release-26.02.0-0\poppler-26.02.0\Library\bin" 
+# No usado actualmente (quedó de una versión anterior con pdf2image),
+# se deja documentado por si se reactiva ese camino de OCR.
+POPPLER_PATH = os.environ.get("POPPLER_PATH", "")
  
             
 # ============================================================
@@ -1817,7 +1827,4 @@ async def ejecutar_scraper():
 
 
 if __name__ == "__main__":
-    asyncio.run(ejecutar_scraper())
-
-
-
+    asyncio.run(ejecutar_scraper()) 
