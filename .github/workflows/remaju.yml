@@ -1,0 +1,65 @@
+name: REMAJU Bloomberg - Scraper automático
+
+on:
+  schedule:
+    # Cada 30 minutos. La hora es UTC (Perú = UTC-5).
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}   # permite lanzarlo manualmente desde la pestaña "Actions"
+
+# Si una corrida tarda más de 30 min y ya está por empezar la siguiente,
+# esto evita que dos corridas se pisen escribiendo el mismo checkpoint.
+concurrency:
+  group: remaju-scraper
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # necesario para que el workflow pueda guardar el checkpoint de vuelta en el repo
+
+jobs:
+  scrapear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Descargar el repositorio (incluye el checkpoint de la corrida anterior)
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias del sistema (OCR y lectura de PDF)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr poppler-utils
+
+      - name: Instalar dependencias de Python
+        run: pip install -r requirements.txt
+
+      - name: Instalar navegador Chromium para Playwright
+        run: playwright install --with-deps chromium
+
+      - name: Correr el scraper (modo headless)
+        env:
+          REMAJU_HEADLESS: "true"
+          PYTHONUNBUFFERED: "1"
+        run: python remaju_scraper_v3.py
+
+      - name: Dejar una copia fija del último Excel (evita acumular un archivo nuevo cada 30 min)
+        run: |
+          ultimo=$(ls -t Bloomberg_Remates_*.xlsx 2>/dev/null | head -n 1)
+          if [ -n "$ultimo" ]; then
+            cp "$ultimo" Bloomberg_Remates_ULTIMO.xlsx
+            echo "Copiado $ultimo -> Bloomberg_Remates_ULTIMO.xlsx"
+          else
+            echo "No se generó ningún Excel nuevo en esta corrida."
+          fi
+
+      - name: Guardar checkpoint y último Excel de vuelta en el repositorio
+        run: |
+          git config user.name "remaju-bot"
+          git config user.email "actions@github.com"
+          git add checkpoint_remaju.jsonl Bloomberg_Remates_ULTIMO.xlsx 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "Actualización automática REMAJU $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
