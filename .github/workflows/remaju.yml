@@ -2,12 +2,19 @@ name: REMAJU Bloomberg - Scraper automático
 
 on:
   schedule:
-    # Cada 30 minutos. La hora es UTC (Perú = UTC-5).
-    - cron: "*/30 * * * *"
+    # Cada 3 horas. Un barrido completo de ~190 remates tarda entre 90
+    # y 120 minutos (pausas anti-radar + descarga de Aviso + PDF por
+    # cada uno), así que cada 30 min era muy optimista -las corridas se
+    # apilaban sin llegar a terminar-. Una vez el checkpoint tenga la
+    # mayoría de remates ya guardados, las corridas siguientes van a
+    # ser MUCHO más rápidas (solo procesan lo nuevo), y ahí se puede
+    # apretar la frecuencia.
+    - cron: "0 */3 * * *"
   workflow_dispatch: {}   # permite lanzarlo manualmente desde la pestaña "Actions"
 
-# Si una corrida tarda más de 30 min y ya está por empezar la siguiente,
-# esto evita que dos corridas se pisen escribiendo el mismo checkpoint.
+# Si una corrida tarda más de lo previsto y ya está por empezar la
+# siguiente, esto evita que dos corridas se pisen escribiendo el mismo
+# checkpoint.
 concurrency:
   group: remaju-scraper
   cancel-in-progress: false
@@ -18,7 +25,9 @@ permissions:
 jobs:
   scrapear:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Con margen real de sobra sobre los ~100 min que tarda un barrido
+    # completo (el límite gratuito de GitHub por job es 360 min = 6h).
+    timeout-minutes: 240
 
     steps:
       - name: Descargar el repositorio (incluye el checkpoint de la corrida anterior)
