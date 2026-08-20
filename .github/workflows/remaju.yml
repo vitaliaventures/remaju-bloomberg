@@ -2,15 +2,14 @@ name: REMAJU Bloomberg - Scraper automático
 
 on:
   schedule:
-    # UNA VEZ AL DÍA (mediodía UTC = 7am Perú), por ahora.
-    # Motivo: la primera corrida completa tardó ~160 minutos, y el plan
-    # gratuito de GitHub Actions da 2,000 min/mes en total. Con "cada 3
-    # horas" se hubiera agotado el cupo mensual en menos de 2 días.
-    # Con el checkpoint ya sembrado (193 remates guardados), las
-    # próximas corridas deberían tardar mucho menos -solo procesan lo
-    # nuevo-, y esa medición real es la que decide si se puede apretar
-    # la frecuencia más adelante sin quedarse sin minutos gratis.
-    - cron: "0 12 * * *"
+    # Cada 6 horas. Con el checkpoint ya sembrado, una corrida
+    # incremental tarda ~18 min (medido en la corrida real del
+    # 20/08/2026). A ese ritmo: 4 corridas/día × 18 min × 30 días ≈
+    # 2,160 min/mes -dentro del cupo gratis de 2,000 min/mes con
+    # margen razonable-. Si en el futuro las corridas empiezan a durar
+    # más (por más remates o más lentitud de REMAJU), hay que volver a
+    # ajustar esta cuenta.
+    - cron: "0 */6 * * *"
   workflow_dispatch: {}   # permite lanzarlo manualmente desde la pestaña "Actions"
 
 # Si una corrida tarda más de lo previsto y ya está por empezar la
