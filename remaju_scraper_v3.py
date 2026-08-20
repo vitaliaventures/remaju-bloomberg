@@ -3,6 +3,7 @@ from playwright.async_api import async_playwright
 import pandas as pd
 import random
 import re
+import math
 import unicodedata
 from datetime import datetime
 import pdfplumber
@@ -1067,6 +1068,31 @@ async def ejecutar_scraper():
         lista_fallidos = []
         detenido_por_captcha = False
 
+        # --- TOPE DE SEGURIDAD DE PAGINACIÓN ---
+        # REMAJU es un sitio VIVO: mientras el scraper corre (puede tardar
+        # 1-2 horas), pueden publicarse remates nuevos y la lista se
+        # reordena por debajo. Eso hace que la paginación "next" siga
+        # habilitada más páginas de las que la cuenta simple (total/4)
+        # sugeriría -no corrompe datos, el checkpoint deduplica por
+        # Código de Remate-, pero SIN un tope podría, en un caso extremo,
+        # no terminar nunca. Se lee el "Total: N registros" que REMAJU
+        # muestra y se calcula un margen generoso sobre eso.
+        total_registros_declarado = None
+        try:
+            texto_total_registros = await page.locator("text=/Total:\\s*\\d+\\s*registros/i").first.inner_text(timeout=5000)
+            m_total = re.search(r"Total:\s*(\d+)\s*registros", texto_total_registros, re.IGNORECASE)
+            if m_total:
+                total_registros_declarado = int(m_total.group(1))
+        except Exception:
+            pass
+
+        if total_registros_declarado:
+            MAX_PAGINAS_SEGURIDAD = math.ceil(total_registros_declarado / 4) + 25  # +25 páginas de margen por reordenamiento
+            print(f"📊 REMAJU declara {total_registros_declarado} registros -> tope de seguridad: {MAX_PAGINAS_SEGURIDAD} páginas")
+        else:
+            MAX_PAGINAS_SEGURIDAD = 150  # respaldo genérico si no se pudo leer el total en pantalla
+            print(f"⚠️ No se pudo leer el total declarado por REMAJU -> tope de seguridad genérico: {MAX_PAGINAS_SEGURIDAD} páginas")
+
         numero_pagina = 1
 
         while True:
@@ -1717,6 +1743,13 @@ async def ejecutar_scraper():
             # --- EVALUACIÓN DE PAGINACIÓN GENERAL ---
             # --- EVALUACIÓN DE PAGINACIÓN GENERAL ---
             print(f"\n🔄 Evaluando si existe una página siguiente...")
+
+            if numero_pagina >= MAX_PAGINAS_SEGURIDAD:
+                print(f"🛑 Tope de seguridad alcanzado ({MAX_PAGINAS_SEGURIDAD} páginas).")
+                print("   Deteniendo el barrido aquí para evitar una corrida sin fin por reordenamiento")
+                print("   del listado en vivo de REMAJU. Lo procesado hasta ahora queda guardado igual.")
+                break
+
             boton_siguiente = page.locator("a.ui-paginator-next")
 
             if await boton_siguiente.count() > 0:
@@ -1827,4 +1860,7 @@ async def ejecutar_scraper():
 
 
 if __name__ == "__main__":
-    asyncio.run(ejecutar_scraper()) 
+    asyncio.run(ejecutar_scraper())
+
+
+
