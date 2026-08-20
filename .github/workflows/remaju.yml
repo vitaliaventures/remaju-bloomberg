@@ -65,6 +65,12 @@ jobs:
             echo "No se generó ningún Excel nuevo en esta corrida."
           fi
 
+      - name: Subir a Google Sheets
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: python subir_a_sheets.py
+
       - name: Guardar checkpoint y último Excel de vuelta en el repositorio
         run: |
           git config user.name "remaju-bot"
