@@ -2,14 +2,15 @@ name: REMAJU Bloomberg - Scraper automático
 
 on:
   schedule:
-    # Cada 3 horas. Un barrido completo de ~190 remates tarda entre 90
-    # y 120 minutos (pausas anti-radar + descarga de Aviso + PDF por
-    # cada uno), así que cada 30 min era muy optimista -las corridas se
-    # apilaban sin llegar a terminar-. Una vez el checkpoint tenga la
-    # mayoría de remates ya guardados, las corridas siguientes van a
-    # ser MUCHO más rápidas (solo procesan lo nuevo), y ahí se puede
-    # apretar la frecuencia.
-    - cron: "0 */3 * * *"
+    # UNA VEZ AL DÍA (mediodía UTC = 7am Perú), por ahora.
+    # Motivo: la primera corrida completa tardó ~160 minutos, y el plan
+    # gratuito de GitHub Actions da 2,000 min/mes en total. Con "cada 3
+    # horas" se hubiera agotado el cupo mensual en menos de 2 días.
+    # Con el checkpoint ya sembrado (193 remates guardados), las
+    # próximas corridas deberían tardar mucho menos -solo procesan lo
+    # nuevo-, y esa medición real es la que decide si se puede apretar
+    # la frecuencia más adelante sin quedarse sin minutos gratis.
+    - cron: "0 12 * * *"
   workflow_dispatch: {}   # permite lanzarlo manualmente desde la pestaña "Actions"
 
 # Si una corrida tarda más de lo previsto y ya está por empezar la
@@ -41,7 +42,7 @@ jobs:
       - name: Instalar dependencias del sistema (OCR y lectura de PDF)
         run: |
           sudo apt-get update
-          sudo apt-get install -y tesseract-ocr poppler-utils
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-spa poppler-utils
 
       - name: Instalar dependencias de Python
         run: pip install -r requirements.txt
