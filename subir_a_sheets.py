@@ -22,6 +22,7 @@ import pandas as pd
 import os
 import json
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -79,16 +80,22 @@ def subir_excel_a_sheets(ruta_excel, id_hoja_calculo, nombre_pestana="Remates"):
     _escribir_pestana(hoja, "Histórico_Completo", df)
 
     # Pestaña aparte con la hora de la última actualización, para que
-    # el cliente sepa qué tan fresca es la data que está viendo.
+    # el cliente sepa qué tan fresca es la data que está viendo. Se
+    # muestra en hora de Perú primero -es lo que le importa al cliente-
+    # y UTC como referencia técnica secundaria (Perú no cambia de hora
+    # por horario de verano, así que UTC-5 es siempre fijo).
     try:
         ws_meta = hoja.worksheet("_meta")
     except gspread.exceptions.WorksheetNotFound:
         ws_meta = hoja.add_worksheet(title="_meta", rows=10, cols=5)
 
-    ahora_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    ahora_utc_dt = datetime.now(timezone.utc)
+    ahora_peru = ahora_utc_dt.astimezone(ZoneInfo("America/Lima")).strftime("%Y-%m-%d %H:%M:%S")
+    ahora_utc = ahora_utc_dt.strftime("%Y-%m-%d %H:%M:%S UTC")
     ws_meta.update(
         [
-            ["Última actualización", ahora_utc],
+            ["Última actualización (hora Perú)", ahora_peru],
+            ["Última actualización (UTC)", ahora_utc],
             ["Remates activos", str(len(df_activos))],
             ["Total histórico (activos + de baja)", str(len(df))],
         ]
@@ -96,7 +103,7 @@ def subir_excel_a_sheets(ruta_excel, id_hoja_calculo, nombre_pestana="Remates"):
 
     print(f"✅ Subidos {len(df_activos)} remates activos a Google Sheets (pestaña '{nombre_pestana}').")
     print(f"   Histórico completo: {len(df)} remates en la pestaña 'Histórico_Completo'.")
-    print(f"   Última actualización marcada: {ahora_utc}")
+    print(f"   Última actualización marcada: {ahora_peru} (hora Perú) / {ahora_utc}")
 
 
 def _escribir_pestana(hoja, nombre_pestana, df):
