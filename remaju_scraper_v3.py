@@ -5,7 +5,8 @@ import random
 import re
 import math
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import pdfplumber
 import pytesseract
 from pdf2image import convert_from_path
@@ -1832,7 +1833,7 @@ async def ejecutar_scraper():
                 fila["Estado REMAJU"] = "Activo"
             elif barrido_completo:
                 if fila.get("Estado REMAJU") != "Ya no disponible":
-                    fila["Fecha Ya No Disponible"] = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+                    fila["Fecha Ya No Disponible"] = datetime.now(timezone.utc).astimezone(ZoneInfo("America/Lima")).strftime("%Y-%m-%d %H:%M (hora Perú)")
                     marcados_como_perdidos_ahora += 1
                 fila["Estado REMAJU"] = "Ya no disponible"
             elif "Estado REMAJU" not in fila or not fila.get("Estado REMAJU"):
