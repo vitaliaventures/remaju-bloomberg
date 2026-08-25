@@ -906,6 +906,8 @@ def ordenar_campos_fila(fila):
         "Parte para CEJ",
         "Origen Parte CEJ",
         "Método extracción partes",
+        "Estado REMAJU",
+        "Fecha Ya No Disponible",
     ]
 
     # primero los definidos, luego los demás
@@ -981,6 +983,22 @@ def guardar_checkpoint_incremental(registro, ruta=RUTA_CHECKPOINT):
             f.write(json.dumps(registro, default=str, ensure_ascii=False) + "\n")
     except Exception as e:
         print(f"   ⚠️ No se pudo escribir el checkpoint para este remate: {e}")
+
+
+def reescribir_checkpoint_completo(diccionario_registros, ruta=RUTA_CHECKPOINT):
+    """
+    Sobrescribe el checkpoint ENTERO (a diferencia de guardar_checkpoint_
+    incremental, que solo agrega). Hace falta para que cambios de estado
+    -ej. Activo -> Ya no disponible- queden guardados incluso en remates
+    que no se volvieron a tocar en esta corrida. Se llama una sola vez,
+    al final, nunca dentro del loop de scraping.
+    """
+    try:
+        with open(ruta, "w", encoding="utf-8") as f:
+            for registro in diccionario_registros.values():
+                f.write(json.dumps(registro, default=str, ensure_ascii=False) + "\n")
+    except Exception as e:
+        print(f"   ⚠️ No se pudo reescribir el checkpoint completo: {e}")
 
 
 # ============================================================
@@ -1067,6 +1085,8 @@ async def ejecutar_scraper():
         lista_maestra_bloomberg = []
         lista_fallidos = []
         detenido_por_captcha = False
+        detenido_por_tope_seguridad = False
+        remates_vistos_esta_corrida = set()
 
         # --- TOPE DE SEGURIDAD DE PAGINACIÓN ---
         # REMAJU es un sitio VIVO: mientras el scraper corre (puede tardar
@@ -1124,6 +1144,7 @@ async def ejecutar_scraper():
 
                     remate_match = re.search(r'(Remate N°\s*\d+)', texto_limpio_tarjeta, re.IGNORECASE)
                     num_remate = remate_match.group(1).strip() if remate_match else f"Remate_{i+1}_P{numero_pagina}"
+                    remates_vistos_esta_corrida.add(num_remate)
 
                     # --- CHECKPOINT: si este remate ya se procesó en una
                     # corrida anterior, se reusa tal cual y NO se vuelve a
@@ -1748,6 +1769,7 @@ async def ejecutar_scraper():
                 print(f"🛑 Tope de seguridad alcanzado ({MAX_PAGINAS_SEGURIDAD} páginas).")
                 print("   Deteniendo el barrido aquí para evitar una corrida sin fin por reordenamiento")
                 print("   del listado en vivo de REMAJU. Lo procesado hasta ahora queda guardado igual.")
+                detenido_por_tope_seguridad = True
                 break
 
             boton_siguiente = page.locator("a.ui-paginator-next")
@@ -1791,6 +1813,42 @@ async def ejecutar_scraper():
             codigo = fila.get("Código de Remate")
             if codigo:
                 combinados[codigo] = fila
+
+        # --- ESTADO: Activo vs. Ya no disponible ---
+        # Un remate que está en el checkpoint pero que HOY no apareció en
+        # el listado de REMAJU ya no es una oportunidad de compra vigente
+        # (se rematò, se canceló, venció la convocatoria, etc.). Solo se
+        # puede confiar en esa ausencia si el barrido de esta corrida
+        # recorrió TODAS las páginas reales -si se cortó por captcha o
+        # por el tope de seguridad, no se sabe si de verdad desapareció o
+        # si el script simplemente no llegó a verlo, así que en ese caso
+        # no se marca nada como perdido, solo se actualiza lo que sí se
+        # alcanzó a ver.
+        barrido_completo = not detenido_por_captcha and not detenido_por_tope_seguridad
+        marcados_como_perdidos_ahora = 0
+
+        for codigo, fila in combinados.items():
+            if codigo in remates_vistos_esta_corrida:
+                fila["Estado REMAJU"] = "Activo"
+            elif barrido_completo:
+                if fila.get("Estado REMAJU") != "Ya no disponible":
+                    fila["Fecha Ya No Disponible"] = datetime.now().strftime("%Y-%m-%d %H:%M UTC")
+                    marcados_como_perdidos_ahora += 1
+                fila["Estado REMAJU"] = "Ya no disponible"
+            elif "Estado REMAJU" not in fila or not fila.get("Estado REMAJU"):
+                fila["Estado REMAJU"] = "Activo"  # primera vez que se ve este campo, valor por defecto
+
+        if barrido_completo:
+            print(f"\n📋 Barrido completo: {marcados_como_perdidos_ahora} remates recién marcados como 'Ya no disponible'.")
+        else:
+            print(f"\n⚠️ Barrido incompleto esta corrida (captcha o tope de seguridad) -no se marcó ninguna baja, solo altas-.")
+
+        # El checkpoint se reescribe COMPLETO (no solo se le agrega),
+        # porque el cambio de estado aplica también a remates que no se
+        # volvieron a procesar hoy -si solo se agregara, ese cambio de
+        # estado se perdería-.
+        reescribir_checkpoint_completo(combinados)
+
         lista_maestra_bloomberg = list(combinados.values())
 
         if detenido_por_captcha:
