@@ -60,16 +60,23 @@ def subir_excel_a_sheets(ruta_excel, id_hoja_calculo, nombre_pestana="Remates"):
     df = df.fillna("")
     df = df.astype(str)
 
-    try:
-        ws = hoja.worksheet(nombre_pestana)
-        ws.clear()
-    except gspread.exceptions.WorksheetNotFound:
-        ws = hoja.add_worksheet(
-            title=nombre_pestana, rows=len(df) + 10, cols=len(df.columns) + 5
-        )
+    # --- PESTAÑA PRINCIPAL: solo remates ACTIVOS ---
+    # Es la vista que ve el cliente por defecto. Un remate marcado "Ya
+    # no disponible" (ya se rematò, se canceló, venció la convocatoria)
+    # no es una oportunidad de compra vigente, así que no debe mezclarse
+    # con las que sí lo son.
+    if "Estado REMAJU" in df.columns:
+        df_activos = df[df["Estado REMAJU"] == "Activo"].copy()
+    else:
+        df_activos = df  # respaldo por si corre con una versión vieja del scraper sin esta columna
 
-    valores = [df.columns.tolist()] + df.values.tolist()
-    ws.update(valores, value_input_option="USER_ENTERED")
+    _escribir_pestana(hoja, nombre_pestana, df_activos)
+
+    # --- PESTAÑA SECUNDARIA: histórico completo (activos + de baja) ---
+    # Útil para analizar después patrones -qué tipo de remates se
+    # rematan rápido, cuáles quedan desiertos, etc.- pero no es lo que
+    # el cliente necesita ver para decidir dónde poner su dinero hoy.
+    _escribir_pestana(hoja, "Histórico_Completo", df)
 
     # Pestaña aparte con la hora de la última actualización, para que
     # el cliente sepa qué tan fresca es la data que está viendo.
@@ -82,12 +89,28 @@ def subir_excel_a_sheets(ruta_excel, id_hoja_calculo, nombre_pestana="Remates"):
     ws_meta.update(
         [
             ["Última actualización", ahora_utc],
-            ["Total de remates", str(len(df))],
+            ["Remates activos", str(len(df_activos))],
+            ["Total histórico (activos + de baja)", str(len(df))],
         ]
     )
 
-    print(f"✅ Subidos {len(df)} remates a Google Sheets (pestaña '{nombre_pestana}').")
+    print(f"✅ Subidos {len(df_activos)} remates activos a Google Sheets (pestaña '{nombre_pestana}').")
+    print(f"   Histórico completo: {len(df)} remates en la pestaña 'Histórico_Completo'.")
     print(f"   Última actualización marcada: {ahora_utc}")
+
+
+def _escribir_pestana(hoja, nombre_pestana, df):
+    """Limpia y reescribe una pestaña con el contenido del DataFrame dado."""
+    try:
+        ws = hoja.worksheet(nombre_pestana)
+        ws.clear()
+    except gspread.exceptions.WorksheetNotFound:
+        ws = hoja.add_worksheet(
+            title=nombre_pestana, rows=len(df) + 10, cols=len(df.columns) + 5
+        )
+
+    valores = [df.columns.tolist()] + df.values.tolist()
+    ws.update(valores, value_input_option="USER_ENTERED")
 
 
 if __name__ == "__main__":
