@@ -156,7 +156,12 @@ def enviar_whatsapp(telefono, mensaje, apikey):
             "text": mensaje,
             "apikey": apikey,
         }
-        url = CALLMEBOT_URL + "?" + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+        # OJO: si 'telefono' es un identificador '@lid' (en vez de un numero normal),
+        # el '@' debe viajar TAL CUAL en la URL, sin convertirse a %40 -- CallMeBot
+        # no reconoce el identificador si se codifica. Por eso 'safe="@"' aqui.
+        url = CALLMEBOT_URL + "?" + urllib.parse.urlencode(
+            params, quote_via=lambda s, safe, enc, err: urllib.parse.quote(s, safe="@" + safe)
+        )
         resp = requests.get(url, timeout=30)
         if resp.status_code >= 300 or "error" in resp.text.lower():
             print(f"⚠️ CallMeBot devolvió un problema para {etiqueta}: {resp.status_code} -- {resp.text[:200]}")
