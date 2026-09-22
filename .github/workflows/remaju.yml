@@ -71,10 +71,22 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: python subir_a_sheets.py
 
-      - name: Guardar checkpoint y último Excel de vuelta en el repositorio
+      - name: Regenerar el dashboard (Remaju Ledger) con los datos de esta corrida
+        run: python build_dashboard.py
+
+      - name: Guardar checkpoint, último Excel y dashboard de vuelta en el repositorio
         run: |
           git config user.name "remaju-bot"
           git config user.email "actions@github.com"
-          git add checkpoint_remaju.jsonl Bloomberg_Remates_ULTIMO.xlsx 2>/dev/null || true
+          git add checkpoint_remaju.jsonl Bloomberg_Remates_ULTIMO.xlsx docs/index.html 2>/dev/null || true
           git diff --staged --quiet || git commit -m "Actualización automática REMAJU $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
+
+      - name: Publicar el dashboard en Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_REMAJU }}"
+          projectId: timewarp-messenger
+          target: remaju-ledger
+          channelId: live
