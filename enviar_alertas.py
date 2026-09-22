@@ -9,18 +9,27 @@ el checkpoint de DESPUÉS (checkpoint_remaju.jsonl, ya actualizado).
 Cualquier "Código de Remate" que aparezca en el de después pero NO
 en el de antes es un remate genuinamente nuevo desde la última
 corrida. Para cada suscriptor en alertas_config.json, si el remate
-nuevo cumple sus criterios, le manda un WhatsApp vía Twilio.
+nuevo cumple sus criterios, le manda un WhatsApp vía CallMeBot
+(https://www.callmebot.com/blog/free-api-whatsapp-messages/).
 
-Modo de prueba (dry-run): si no hay credenciales de Twilio en el
-entorno (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_WHATSAPP_FROM),
-el script NO falla -- simplemente imprime en consola qué mensaje le
-habría mandado a quién, para poder revisar la lógica sin gastar
-saldo ni tener las credenciales todavía configuradas.
+Por qué CallMeBot y no Twilio: para un solo destinatario (o pocos),
+CallMeBot evita el paso de "Sandbox" de Twilio, que en algunos
+celulares/números no resuelve bien el número real (ver historial de
+depuración del 22/09/2026). Cada suscriptor necesita su propio
+'apikey' de CallMeBot -- se consigue mandándole un WhatsApp a
++34 644 71 71 89 con el texto "I allow callmebot to send me messages"
+y guardando el número que responde.
+
+Modo de prueba (dry-run): si un suscriptor no tiene 'apikey'
+configurada en alertas_config.json, el script NO falla para ese
+suscriptor -- simplemente imprime en consola qué mensaje le habría
+mandado, para poder revisar la lógica sin tener el apikey todavía.
 """
 
 import json
 import os
 import sys
+import urllib.parse
 
 import requests
 
@@ -28,11 +37,7 @@ RUTA_CHECKPOINT_ANTERIOR = "checkpoint_remaju_anterior.jsonl"
 RUTA_CHECKPOINT_ACTUAL = "checkpoint_remaju.jsonl"
 RUTA_CONFIG = "alertas_config.json"
 
-TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
-TWILIO_WHATSAPP_FROM = os.environ.get("TWILIO_WHATSAPP_FROM")  # ej: "whatsapp:+14155238886"
-
-DRY_RUN = not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_WHATSAPP_FROM)
+CALLMEBOT_URL = "https://api.callmebot.com/whatsapp.php"
 
 
 def cargar_jsonl(ruta):
@@ -136,40 +141,34 @@ def armar_mensaje(nombre, remates):
     return "\n".join(lineas)
 
 
-def enviar_whatsapp(telefono, mensaje):
-    if DRY_RUN:
-        print(f"\n[DRY-RUN -- no se envió de verdad, faltan credenciales de Twilio]")
-        print(f"Para: whatsapp:+{telefono}")
+def enviar_whatsapp(telefono, mensaje, apikey):
+    etiqueta = telefono if "@" in telefono else f"+{telefono}"
+
+    if not apikey:
+        print(f"\n[DRY-RUN -- '{telefono}' no tiene apikey de CallMeBot configurada todavía]")
+        print(f"Para: {etiqueta}")
         print(f"Mensaje:\n{mensaje}\n")
         return True
 
-    url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
     try:
-        resp = requests.post(
-            url,
-            auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
-            data={
-                "From": TWILIO_WHATSAPP_FROM,
-                "To": f"whatsapp:+{telefono}",
-                "Body": mensaje,
-            },
-            timeout=30,
-        )
-        if resp.status_code >= 300:
-            print(f"⚠️ Twilio devolvió error {resp.status_code} para +{telefono}: {resp.text}")
+        params = {
+            "phone": telefono,
+            "text": mensaje,
+            "apikey": apikey,
+        }
+        url = CALLMEBOT_URL + "?" + urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+        resp = requests.get(url, timeout=30)
+        if resp.status_code >= 300 or "error" in resp.text.lower():
+            print(f"⚠️ CallMeBot devolvió un problema para {etiqueta}: {resp.status_code} -- {resp.text[:200]}")
             return False
-        print(f"✅ WhatsApp enviado a +{telefono}")
+        print(f"✅ WhatsApp enviado a {etiqueta} (CallMeBot)")
         return True
     except Exception as e:
-        print(f"⚠️ Falló el envío a +{telefono}: {e}")
+        print(f"⚠️ Falló el envío a {etiqueta}: {e}")
         return False
 
 
 def main():
-    if DRY_RUN:
-        print("⚠️ Modo DRY-RUN: no hay credenciales de Twilio en el entorno.")
-        print("   Se va a mostrar en consola qué se habría enviado, sin mandar nada real.\n")
-
     if not os.path.exists(RUTA_CONFIG):
         print(f"❌ No se encontró {RUTA_CONFIG}. Nada que hacer.")
         sys.exit(0)
@@ -210,7 +209,8 @@ def main():
             continue
 
         mensaje = armar_mensaje(nombre, coincidencias)
-        if enviar_whatsapp(telefono, mensaje):
+        apikey = sus.get("apikey", "").strip()
+        if enviar_whatsapp(telefono, mensaje, apikey):
             total_alertas_enviadas += 1
 
     print(f"\n✅ Proceso de alertas terminado. {total_alertas_enviadas} mensaje(s) procesado(s).")
