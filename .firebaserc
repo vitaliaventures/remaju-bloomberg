@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "timewarp-messenger"
+  },
+  "targets": {
+    "timewarp-messenger": {
+      "hosting": {
+        "remaju-ledger": [
+          "remaju-ledger"
+        ]
+      }
+    }
+  }
+}
