@@ -33,6 +33,14 @@ jobs:
       - name: Descargar el repositorio (incluye el checkpoint de la corrida anterior)
         uses: actions/checkout@v4
 
+      - name: Guardar una foto del checkpoint ANTES de scrapear (para detectar qué es nuevo)
+        run: |
+          if [ -f checkpoint_remaju.jsonl ]; then
+            cp checkpoint_remaju.jsonl checkpoint_remaju_anterior.jsonl
+          else
+            touch checkpoint_remaju_anterior.jsonl
+          fi
+
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
@@ -90,3 +98,10 @@ jobs:
           projectId: timewarp-messenger
           target: remaju-ledger
           channelId: live
+
+      - name: Enviar alertas de WhatsApp por remates nuevos
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_WHATSAPP_FROM: ${{ secrets.TWILIO_WHATSAPP_FROM }}
+        run: python enviar_alertas.py
