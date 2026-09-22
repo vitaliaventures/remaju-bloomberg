@@ -5,10 +5,8 @@
     {
       "nombre": "Luis Fernando",
       "telefono": "51972552408",
-      "departamento": "LIMA",
-      "tipo_inmueble": "",
-      "precio_max_pen": 400000,
-      "descuento_min_pct": 20
+      "departamento": "",
+      "tipo_inmueble": ""
     }
   ]
 }
