@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Remaju Ledger — Remates Judiciales del Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#12181f;
+  --ink-soft:#3a4552;
+  --paper:#f6f4ee;
+  --paper-raised:#ffffff;
+  --line:#d8d2c4;
+  --line-soft:#e8e4d8;
+  --gold:#a9782f;
+  --gold-deep:#7d5a22;
+  --green:#2f6b4f;
+  --red:#a4402f;
+  --shadow: 0 1px 2px rgba(18,24,31,.06);
+  font-family: system-ui, -apple-system, sans-serif;
+  box-sizing:border-box;
+}
+:root:not([data-theme="light"]) {
+  @media (prefers-color-scheme: dark) {
+    --ink:#eee8da;
+    --ink-soft:#b9b2a1;
+    --paper:#14120f;
+    --paper-raised:#1c1a15;
+    --line:#332e24;
+    --line-soft:#241f18;
+    --gold:#d7a34e;
+    --gold-deep:#e8bd72;
+    --green:#5fae87;
+    --red:#e08066;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#eee8da;
+  --ink-soft:#b9b2a1;
+  --paper:#14120f;
+  --paper-raised:#1c1a15;
+  --line:#332e24;
+  --line-soft:#241f18;
+  --gold:#d7a34e;
+  --gold-deep:#e8bd72;
+  --green:#5fae87;
+  --red:#e08066;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top: env(safe-area-inset-top,0px);}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Inter',system-ui,sans-serif;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  -webkit-font-smoothing:antialiased;
+}
+.serif{font-family:'Fraunces',serif;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+
+/* ===== Top bar ===== */
+header.top{
+  position:sticky; top:0; top:env(safe-area-inset-top,0px);
+  z-index:50;
+  background:var(--paper);
+  border-bottom:1px solid var(--line);
+}
+.top-inner{
+  max-width:1400px; margin:0 auto;
+  padding:18px 28px 16px;
+  display:flex; align-items:baseline; justify-content:space-between; gap:24px;
+  flex-wrap:wrap;
+}
+.brand{display:flex; align-items:baseline; gap:12px;}
+.brand h1{
+  font-size:22px; font-weight:600; margin:0; letter-spacing:-0.01em;
+}
+.brand .tag{
+  color:var(--ink-soft); font-size:13px; margin-top:2px;
+}
+.stats-strip{
+  display:flex; gap:28px; flex-wrap:wrap;
+}
+.stat{ text-align:right; }
+.stat .num{ font-family:'IBM Plex Mono',monospace; font-size:19px; font-weight:600; line-height:1; }
+.stat .lbl{ font-size:11px; color:var(--ink-soft); margin-top:4px; }
+.stat.up .num{color:var(--green);}
+
+/* ===== Controls ===== */
+.controls{
+  max-width:1400px; margin:0 auto;
+  padding:16px 28px;
+  display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  border-bottom:1px solid var(--line-soft);
+}
+.controls input[type="search"]{
+  flex:1 1 240px; min-width:180px;
+  padding:9px 12px;
+  border:1px solid var(--line);
+  background:var(--paper-raised);
+  color:var(--ink);
+  border-radius:3px;
+  font-family:'Inter',sans-serif; font-size:14px;
+}
+select{
+  padding:9px 10px;
+  border:1px solid var(--line);
+  background:var(--paper-raised);
+  color:var(--ink);
+  border-radius:3px;
+  font-family:'Inter',sans-serif; font-size:13.5px;
+}
+.controls input:focus, select:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+.chip-toggle{
+  display:flex; border:1px solid var(--line); border-radius:3px; overflow:hidden;
+}
+.chip-toggle button{
+  border:0; background:var(--paper-raised); color:var(--ink-soft);
+  padding:9px 14px; font-size:13px; font-family:'Inter',sans-serif; cursor:pointer;
+  border-right:1px solid var(--line);
+}
+.chip-toggle button:last-child{border-right:0;}
+.chip-toggle button.active{ background:var(--ink); color:var(--paper); }
+.result-count{ font-size:12.5px; color:var(--ink-soft); margin-left:auto; white-space:nowrap; }
+
+/* ===== List ===== */
+main{ max-width:1400px; margin:0 auto; padding:6px 28px 80px; }
+.row{
+  display:grid;
+  grid-template-columns: 92px 1.6fr 100px 130px 130px 90px 110px 22px;
+  gap:16px;
+  align-items:center;
+  padding:15px 6px;
+  border-bottom:1px solid var(--line-soft);
+  cursor:pointer;
+  transition:background .12s ease;
+}
+.row:hover{ background:var(--paper-raised); }
+.row.head{
+  cursor:default; font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--ink-soft); border-bottom:1px solid var(--line); padding-top:0; padding-bottom:10px;
+}
+.row.head:hover{background:transparent;}
+.col-code{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft); }
+.col-main .addr{ font-size:14px; line-height:1.35; }
+.col-main .meta{ font-size:12px; color:var(--ink-soft); margin-top:3px; }
+.col-num{ font-family:'IBM Plex Mono',monospace; font-size:13.5px; text-align:right; }
+.col-disc{ font-family:'IBM Plex Mono',monospace; font-size:13.5px; text-align:right; color:var(--green); }
+.col-disc.low{ color: var(--ink-soft); }
+.badge{
+  display:inline-block; font-size:11px; padding:3px 8px; border-radius:2px;
+  font-family:'Inter',sans-serif; font-weight:500;
+}
+.badge.activo{ background:rgba(47,107,79,.13); color:var(--green); }
+.badge.no-disp{ background:rgba(164,64,47,.10); color:var(--red); }
+.chev{ color:var(--ink-soft); font-size:14px; text-align:center; }
+
+/* ===== Detail panel ===== */
+.detail{
+  display:none;
+  padding:20px 18px 26px;
+  margin-bottom:2px;
+  background:var(--paper-raised);
+  border:1px solid var(--line);
+  border-radius:4px;
+}
+.detail.open{ display:block; }
+.detail-grid{
+  display:grid; grid-template-columns: 1.3fr 1fr; gap:26px;
+}
+@media (max-width: 760px){ .detail-grid{grid-template-columns:1fr;} }
+.detail h3{ font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin:0 0 8px; font-weight:600; }
+.detail p.desc{ font-size:13.5px; line-height:1.6; color:var(--ink); }
+.kv{ display:grid; grid-template-columns: auto 1fr; gap:6px 14px; font-size:13px; margin-bottom:18px;}
+.kv dt{ color:var(--ink-soft); }
+.kv dd{ margin:0; font-family:'IBM Plex Mono',monospace; font-size:12.5px; }
+.parties{ font-size:13px; line-height:1.5; }
+.parties b{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600; margin-top:12px;}
+.parties b:first-child{margin-top:0;}
+
+/* ===== Empty state ===== */
+.empty{ padding:60px 20px; text-align:center; color:var(--ink-soft); font-size:14px; }
+
+/* mobile row layout */
+@media (max-width: 860px){
+  .row{
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "main badge" "nums nums";
+    row-gap:8px;
+  }
+  .col-code{display:none;}
+  .col-main{grid-area:main;}
+  .col-num, .col-disc{grid-area:nums; display:inline-block; margin-right:16px; text-align:left;}
+  .chev{display:none;}
+  .row.head{display:none;}
+  .stats-strip{gap:18px;}
+  .top-inner{padding:14px 16px;}
+  .controls{padding:12px 16px;}
+  main{padding:0 16px 60px;}
+}
+::selection{ background:var(--gold); color:var(--paper); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <h1 class="serif">Remaju Ledger</h1>
+      <div class="tag">Remates judiciales del Perú — a partir de datos públicos de REM@JU</div>
+    </div>
+    <div class="stats-strip" id="statsStrip"></div>
+  </div>
+  <div class="controls">
+    <input type="search" id="search" placeholder="Buscar por dirección, distrito, demandante, demandado…">
+    <select id="fDept"><option value="">Departamento — todos</option></select>
+    <select id="fTipo"><option value="">Tipo de inmueble — todos</option></select>
+    <div class="chip-toggle" id="fEstado">
+      <button data-v="">Todos</button>
+      <button data-v="Activo" class="active">Activos</button>
+      <button data-v="Ya no disponible">Cerrados</button>
+    </div>
+    <select id="fSort">
+      <option value="fecha_asc">Fecha de remate ↑</option>
+      <option value="fecha_desc">Fecha de remate ↓</option>
+      <option value="desc_desc">Mayor descuento</option>
+      <option value="precio_asc">Precio base ↑</option>
+      <option value="precio_desc">Precio base ↓</option>
+    </select>
+    <span class="result-count" id="resultCount"></span>
+  </div>
+</header>
+
+<main>
+  <div class="row head">
+    <div>Código</div>
+    <div>Inmueble</div>
+    <div style="text-align:right">Tasación</div>
+    <div style="text-align:right">Precio base</div>
+    <div style="text-align:right">Descuento</div>
+    <div style="text-align:right">Fecha</div>
+    <div style="text-align:right">Estado</div>
+    <div></div>
+  </div>
+  <div id="list"></div>
+  <div class="empty" id="emptyState" style="display:none;">No se encontraron remates con esos filtros.</div>
+</main>
+
+<script>
+const DATA = __DATA_JSON__;
+
+function money(v, moneda){
+  if(v===null || v===undefined || v==='') return '—';
+  const n = Number(v);
+  if(isNaN(n)) return '—';
+  const sym = moneda === 'USD' ? 'US$' : (moneda === 'PEN' ? 'S/' : (moneda||''));
+  return sym + ' ' + n.toLocaleString('es-PE', {maximumFractionDigits:0});
+}
+function pct(t, p){
+  const T = Number(t), P = Number(p);
+  if(!T || isNaN(T) || isNaN(P)) return null;
+  return Math.round((1 - P/T) * 100);
+}
+function parseFecha(f){
+  if(!f) return null;
+  const m = String(f).match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if(!m) return null;
+  return new Date(+m[3], +m[2]-1, +m[1]);
+}
+
+// ---- populate filter selects ----
+const deptSet = new Set(), tipoSet = new Set();
+DATA.forEach(d=>{
+  if(d['Departamento Inmueble']) deptSet.add(d['Departamento Inmueble']);
+  if(d['Tipo Inmueble 1']) tipoSet.add(d['Tipo Inmueble 1']);
+});
+const fDept = document.getElementById('fDept');
+[...deptSet].sort().forEach(v=>{
+  const o=document.createElement('option'); o.value=v; o.textContent=v; fDept.appendChild(o);
+});
+const fTipo = document.getElementById('fTipo');
+[...tipoSet].sort().forEach(v=>{
+  const o=document.createElement('option'); o.value=v; o.textContent=v.charAt(0)+v.slice(1).toLowerCase(); fTipo.appendChild(o);
+});
+
+// ---- stats strip ----
+const activos = DATA.filter(d=>d['Estado REMAJU']==='Activo');
+const totalPrecioActivosPEN = activos.reduce((sum,d)=>{
+  const p = Number(d['Precio Base']);
+  if(isNaN(p)) return sum;
+  const factor = d['Moneda Precio Base']==='USD' ? 3.8 : 1;
+  return sum + p*factor;
+},0);
+document.getElementById('statsStrip').innerHTML = `
+  <div class="stat up"><div class="num">${activos.length}</div><div class="lbl">remates activos</div></div>
+  <div class="stat"><div class="num">${DATA.length}</div><div class="lbl">total en el ledger</div></div>
+  <div class="stat"><div class="num">S/ ${(totalPrecioActivosPEN/1e6).toFixed(1)}M</div><div class="lbl">valor base activo (aprox.)</div></div>
+`;
+
+// ---- state ----
+let state = { q:'', dept:'', tipo:'', estado:'Activo', sort:'fecha_asc' };
+let openCode = null;
+
+function matches(d){
+  if(state.dept && d['Departamento Inmueble'] !== state.dept) return false;
+  if(state.tipo && d['Tipo Inmueble 1'] !== state.tipo) return false;
+  if(state.estado && d['Estado REMAJU'] !== state.estado) return false;
+  if(state.q){
+    const q = state.q.toLowerCase();
+    const hay = [d['Dirección 1'],d['Distrito Inmueble'],d['Provincia Inmueble'],d['Departamento Inmueble'],
+      d['Demandante'],d['Demandado'],d['Código de Remate'],d['Número de Expediente']]
+      .filter(Boolean).join(' ').toLowerCase();
+    if(!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function sortFn(a,b){
+  if(state.sort==='fecha_asc' || state.sort==='fecha_desc'){
+    const fa = parseFecha(a['Fecha del remate']), fb = parseFecha(b['Fecha del remate']);
+    if(!fa && !fb) return 0;
+    if(!fa) return 1;
+    if(!fb) return -1;
+    return state.sort==='fecha_asc' ? fa-fb : fb-fa;
+  }
+  if(state.sort==='precio_asc' || state.sort==='precio_desc'){
+    const pa = Number(a['Precio Base'])||0, pb = Number(b['Precio Base'])||0;
+    return state.sort==='precio_asc' ? pa-pb : pb-pa;
+  }
+  if(state.sort==='desc_desc'){
+    const da = pct(a['Tasación'],a['Precio Base']) ?? -999;
+    const db = pct(b['Tasación'],b['Precio Base']) ?? -999;
+    return db-da;
+  }
+  return 0;
+}
+
+function escapeHtml(s){
+  return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+function renderDetail(d){
+  const partesDte = (d['Demandante']||'').split('/').map(s=>s.trim()).filter(Boolean);
+  const partesDdo = (d['Demandado']||'').split('/').map(s=>s.trim()).filter(Boolean);
+  return `
+  <div class="detail-grid">
+    <div>
+      <h3>Descripción del inmueble</h3>
+      <p class="desc">${escapeHtml(d['Descripción'] || 'Sin descripción disponible.')}</p>
+      <h3 style="margin-top:20px;">Proceso judicial</h3>
+      <div class="kv">
+        <dt>Expediente</dt><dd>${escapeHtml(d['Número de Expediente']||'—')}</dd>
+        <dt>Órgano</dt><dd style="font-family:inherit;font-size:12.5px;">${escapeHtml(d['Órgano Jurisdisccional']||'—')}</dd>
+        <dt>Materia</dt><dd style="font-family:inherit;font-size:12.5px;">${escapeHtml(d['Materia']||'—')}</dd>
+        <dt>Estado CEJ</dt><dd style="font-family:inherit;font-size:12.5px;">${escapeHtml(d['CEJ Estado Proceso']||'—')}</dd>
+      </div>
+    </div>
+    <div>
+      <h3>Cifras</h3>
+      <div class="kv">
+        <dt>Tasación</dt><dd>${money(d['Tasación'], d['Moneda Tasación'])}</dd>
+        <dt>Precio base</dt><dd>${money(d['Precio Base'], d['Moneda Precio Base'])}</dd>
+        <dt>N° inscritos</dt><dd>${escapeHtml(d['N° inscritos']||'0')}</dd>
+        <dt>Convocatoria</dt><dd style="font-family:inherit;font-size:12px;">${escapeHtml(d['Convocatoria']||'—')}</dd>
+      </div>
+      <h3>Partes procesales</h3>
+      <div class="parties">
+        <b>Demandante(s)</b>
+        ${partesDte.length ? partesDte.map(p=>`<div>${escapeHtml(p)}</div>`).join('') : '—'}
+        <b>Demandado(s)</b>
+        ${partesDdo.length ? partesDdo.map(p=>`<div>${escapeHtml(p)}</div>`).join('') : '—'}
+      </div>
+      ${(d['Gravámenes']||d['Cargas']) ? `
+      <h3 style="margin-top:16px;">Cargas y gravámenes</h3>
+      <p class="desc" style="font-size:12.5px;">${escapeHtml([d['Gravámenes'],d['Cargas']].filter(Boolean).join(' — '))}</p>` : ''}
+    </div>
+  </div>`;
+}
+
+function render(){
+  const filtered = DATA.filter(matches).sort(sortFn);
+  document.getElementById('resultCount').textContent = filtered.length + ' remate' + (filtered.length===1?'':'s');
+  const list = document.getElementById('list');
+  const empty = document.getElementById('emptyState');
+
+  if(filtered.length === 0){
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = filtered.map(d=>{
+    const code = d['Código de Remate'];
+    const discount = pct(d['Tasación'], d['Precio Base']);
+    const isOpen = openCode === code;
+    const estadoClass = d['Estado REMAJU']==='Activo' ? 'activo' : 'no-disp';
+    const ubic = [d['Distrito Inmueble'], d['Provincia Inmueble'], d['Departamento Inmueble']].filter(Boolean).join(', ');
+    return `
+    <div class="row" data-code="${escapeHtml(code)}">
+      <div class="col-code">${escapeHtml((code||'').replace('Remate N° ','#'))}</div>
+      <div class="col-main">
+        <div class="addr">${escapeHtml(d['Tipo Inmueble 1']||'Inmueble')} — ${escapeHtml(ubic || d['Distrito Judicial'] || '')}</div>
+        <div class="meta">${escapeHtml((d['Dirección 1']||'').slice(0,90))}${(d['Dirección 1']||'').length>90?'…':''}</div>
+      </div>
+      <div class="col-num">${money(d['Tasación'], d['Moneda Tasación'])}</div>
+      <div class="col-num">${money(d['Precio Base'], d['Moneda Precio Base'])}</div>
+      <div class="col-disc ${discount===null||discount<30?'low':''}">${discount!==null ? '-'+discount+'%' : '—'}</div>
+      <div class="col-num" style="font-size:12.5px;">${escapeHtml(d['Fecha del remate']||'—')}</div>
+      <div style="text-align:right;"><span class="badge ${estadoClass}">${d['Estado REMAJU']==='Activo'?'Activo':'Cerrado'}</span></div>
+      <div class="chev">${isOpen?'▲':'▾'}</div>
+    </div>
+    ${isOpen ? `<div class="detail open">${renderDetail(d)}</div>` : ''}
+    `;
+  }).join('');
+
+  list.querySelectorAll('.row[data-code]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const code = el.getAttribute('data-code');
+      openCode = (openCode === code) ? null : code;
+      render();
+      if(openCode){
+        requestAnimationFrame(()=>{
+          const target = document.querySelector(`.row[data-code="${CSS.escape(code)}"]`);
+          if(target) target.scrollIntoView({behavior:'smooth', block:'center'});
+        });
+      }
+    });
+  });
+}
+
+document.getElementById('search').addEventListener('input', e=>{ state.q = e.target.value; render(); });
+document.getElementById('fDept').addEventListener('change', e=>{ state.dept = e.target.value; render(); });
+document.getElementById('fTipo').addEventListener('change', e=>{ state.tipo = e.target.value; render(); });
+document.getElementById('fSort').addEventListener('change', e=>{ state.sort = e.target.value; render(); });
+document.querySelectorAll('#fEstado button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#fEstado button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.estado = btn.getAttribute('data-v');
+    render();
+  });
+});
+
+render();
+</script>
+</body>
+</html>
