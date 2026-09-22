@@ -1,0 +1,14 @@
+{
+  "_comentario": "Cada objeto es un suscriptor. 'telefono' va en formato internacional sin '+' ni espacios (ej. whatsapp de Perú: 51987654321). Los criterios vacíos ('') o ausentes significan 'sin filtro en ese campo'. precio_max_pen convierte automáticamente si el remate está en USD, usando el Tipo Cambio real de ese remate.",
+
+  "suscriptores": [
+    {
+      "nombre": "Luis Fernando (prueba)",
+      "telefono": "51900000000",
+      "departamento": "LIMA",
+      "tipo_inmueble": "",
+      "precio_max_pen": 400000,
+      "descuento_min_pct": 20
+    }
+  ]
+}
