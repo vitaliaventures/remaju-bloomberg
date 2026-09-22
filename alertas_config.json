@@ -1,10 +1,11 @@
 {
-  "_comentario": "Cada objeto es un suscriptor. 'telefono' va en formato internacional sin '+' ni espacios (ej. whatsapp de Perú: 51987654321). Los criterios vacíos ('') o ausentes significan 'sin filtro en ese campo'. precio_max_pen convierte automáticamente si el remate está en USD, usando el Tipo Cambio real de ese remate.",
+  "_comentario": "Cada objeto es un suscriptor. 'telefono' normalmente es tu numero en formato internacional (51987654321), PERO si WhatsApp te dio un identificador '@lid' al activar CallMeBot (por privacidad), usa ese identificador completo tal cual en su lugar -- es lo que WhatsApp expone en vez de tu numero real. 'apikey' es la que te manda CallMeBot por WhatsApp. Los criterios vacios ('') o ausentes significan 'sin filtro en ese campo'.",
 
   "suscriptores": [
     {
       "nombre": "Luis Fernando",
-      "telefono": "51972552408",
+      "telefono": "8397063774425@lid",
+      "apikey": "9389355",
       "departamento": "",
       "tipo_inmueble": ""
     }
