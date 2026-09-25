@@ -158,6 +158,11 @@ main{ max-width:1400px; margin:0 auto; padding:6px 28px 80px; }
 }
 .badge.activo{ background:rgba(47,107,79,.13); color:var(--green); }
 .badge.no-disp{ background:rgba(164,64,47,.10); color:var(--red); }
+.cd{ font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:500; white-space:nowrap; }
+.cd-verde{ color:var(--green); }
+.cd-amarillo{ color:var(--gold-deep); }
+.cd-rojo{ color:var(--red); font-weight:600; }
+.cd-cerrado{ color:var(--ink-soft); }
 .chev{ color:var(--ink-soft); font-size:14px; text-align:center; }
 
 /* ===== Detail panel ===== */
@@ -182,6 +187,39 @@ main{ max-width:1400px; margin:0 auto; padding:6px 28px 80px; }
 .parties{ font-size:13px; line-height:1.5; }
 .parties b{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600; margin-top:12px;}
 .parties b:first-child{margin-top:0;}
+
+/* ===== Calculadora de viabilidad ===== */
+.calc-box{
+  margin-top:22px; padding-top:18px; border-top:1px solid var(--line);
+}
+.calc-box h3{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+.calc-tag{
+  font-size:11px; text-transform:none; letter-spacing:0; color:var(--gold-deep);
+  font-weight:500; font-family:'Inter',sans-serif;
+}
+.calc-grid{
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:14px 18px; margin-top:12px;
+}
+@media (max-width:700px){ .calc-grid{grid-template-columns:1fr 1fr;} }
+.calc-grid label{
+  font-size:12px; color:var(--ink-soft); display:flex; flex-direction:column; gap:5px;
+}
+.calc-grid .hint{ font-size:10.5px; color:var(--ink-soft); font-weight:400; }
+.calc-grid input{
+  font-family:'IBM Plex Mono',monospace; font-size:14px;
+  padding:8px 9px; border:1px solid var(--line); border-radius:3px;
+  background:var(--paper); color:var(--ink);
+}
+.calc-grid input:focus{ outline:2px solid var(--gold); outline-offset:0; }
+.calc-market input{ border-color:var(--gold); }
+.calc-result{
+  margin-top:16px; display:flex; gap:28px; flex-wrap:wrap;
+  padding:12px 14px; background:var(--paper); border:1px solid var(--line); border-radius:3px;
+}
+.calc-total{ display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--ink-soft); }
+.calc-total b{ font-family:'IBM Plex Mono',monospace; font-size:16px; color:var(--ink); }
+.calc-total b.ok{ color:var(--green); }
+.calc-total b.malo{ color:var(--red); }
 
 /* ===== Empty state ===== */
 .empty{ padding:60px 20px; text-align:center; color:var(--ink-soft); font-size:14px; }
@@ -226,6 +264,7 @@ main{ max-width:1400px; margin:0 auto; padding:6px 28px 80px; }
       <button data-v="Ya no disponible">Cerrados</button>
     </div>
     <select id="fSort">
+      <option value="cierre_asc" selected>Cierra pronto</option>
       <option value="fecha_asc">Fecha de remate ↑</option>
       <option value="fecha_desc">Fecha de remate ↓</option>
       <option value="desc_desc">Mayor descuento</option>
@@ -272,6 +311,39 @@ function parseFecha(f){
   if(!m) return null;
   return new Date(+m[3], +m[2]-1, +m[1]);
 }
+function parseFechaHora(fecha, hora){
+  const base = parseFecha(fecha);
+  if(!base) return null;
+  if(!hora) return base;
+  const m = String(hora).match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if(!m) return base;
+  let h = +m[1];
+  const min = +m[2];
+  const ampm = (m[3]||'').toUpperCase();
+  if(ampm === 'PM' && h !== 12) h += 12;
+  if(ampm === 'AM' && h === 12) h = 0;
+  const dt = new Date(base);
+  dt.setHours(h, min, 0, 0);
+  return dt;
+}
+// La sala virtual de REM@JU abre exactamente en "Fecha/Hora del remate" y la
+// puja dura 24 horas fijas, sin prorroga -- el cierre siempre es inicio+24h.
+function horaCierre(d){
+  const inicio = parseFechaHora(d['Fecha del remate'], d['Hora del remate']);
+  if(!inicio) return null;
+  return new Date(inicio.getTime() + 24*60*60*1000);
+}
+function formatoContador(msRestantes){
+  if(msRestantes <= 0) return {texto:'Cerrado', clase:'cd-cerrado'};
+  const totalMin = Math.floor(msRestantes/60000);
+  const h = Math.floor(totalMin/60);
+  const m = totalMin % 60;
+  const texto = h > 0 ? `${h}h ${m}m` : `${m}m`;
+  let clase = 'cd-verde';
+  if(msRestantes < 60*60*1000) clase = 'cd-rojo';
+  else if(msRestantes < 12*60*60*1000) clase = 'cd-amarillo';
+  return {texto:'⏳ '+texto, clase};
+}
 
 // ---- populate filter selects ----
 const deptSet = new Set(), tipoSet = new Set();
@@ -303,7 +375,7 @@ document.getElementById('statsStrip').innerHTML = `
 `;
 
 // ---- state ----
-let state = { q:'', dept:'', tipo:'', estado:'Activo', sort:'fecha_asc' };
+let state = { q:'', dept:'', tipo:'', estado:'Activo', sort:'cierre_asc' };
 let openCode = null;
 
 function matches(d){
@@ -337,6 +409,14 @@ function sortFn(a,b){
     const db = pct(b['Tasación'],b['Precio Base']) ?? -999;
     return db-da;
   }
+  if(state.sort==='cierre_asc'){
+    const ca = a['Estado REMAJU']==='Activo' ? horaCierre(a) : null;
+    const cb = b['Estado REMAJU']==='Activo' ? horaCierre(b) : null;
+    if(!ca && !cb) return 0;
+    if(!ca) return 1;
+    if(!cb) return -1;
+    return ca.getTime() - cb.getTime();
+  }
   return 0;
 }
 
@@ -347,6 +427,13 @@ function escapeHtml(s){
 function renderDetail(d){
   const partesDte = (d['Demandante']||'').split('/').map(s=>s.trim()).filter(Boolean);
   const partesDdo = (d['Demandado']||'').split('/').map(s=>s.trim()).filter(Boolean);
+
+  const precioOriginal = Number(d['Precio Base']) || 0;
+  const monedaPrecio = d['Moneda Precio Base'];
+  const tcFallback = 3.8;
+  const precioPEN = monedaPrecio === 'USD' ? Math.round(precioOriginal * tcFallback) : Math.round(precioOriginal);
+  const notarialesEstim = Math.round(precioPEN * 0.03);
+
   return `
   <div class="detail-grid">
     <div>
@@ -379,7 +466,54 @@ function renderDetail(d){
       <h3 style="margin-top:16px;">Cargas y gravámenes</h3>
       <p class="desc" style="font-size:12.5px;">${escapeHtml([d['Gravámenes'],d['Cargas']].filter(Boolean).join(' — '))}</p>` : ''}
     </div>
+  </div>
+
+  <div class="calc-box">
+    <h3>Calculadora de viabilidad financiera <span class="calc-tag">estimado -- verifica cada cifra antes de decidir</span></h3>
+    <div class="calc-grid">
+      <label>Precio base (S/, ya convertido si es USD)
+        <input type="number" id="calc-precio" value="${precioPEN}" step="1000">
+      </label>
+      <label>Oferta al demandado <span class="hint">(para que gane algo antes del remate)</span>
+        <input type="number" id="calc-oferta" value="10000" step="500">
+      </label>
+      <label>Remodelación estimada
+        <input type="number" id="calc-remodela" value="0" step="1000">
+      </label>
+      <label>Notariales + registrales <span class="hint">(estimado 3%, ajusta si sabes el real)</span>
+        <input type="number" id="calc-notariales" value="${notarialesEstim}" step="500">
+      </label>
+      <label>Predial pendiente <span class="hint">(verificar en la municipalidad)</span>
+        <input type="number" id="calc-predial" value="0" step="100">
+      </label>
+      <label class="calc-market">Valor de mercado estimado <span class="hint">(tú lo estimas: zona, portales, etc.)</span>
+        <input type="number" id="calc-mercado" value="0" step="1000">
+      </label>
+    </div>
+    <div class="calc-result" id="calc-result"></div>
   </div>`;
+}
+
+function calcularViabilidad(){
+  const num = id => Number(document.getElementById(id)?.value) || 0;
+  const precio = num('calc-precio');
+  const oferta = num('calc-oferta');
+  const remodela = num('calc-remodela');
+  const notariales = num('calc-notariales');
+  const predial = num('calc-predial');
+  const mercado = num('calc-mercado');
+
+  const inversionTotal = precio + oferta + remodela + notariales + predial;
+  const margen = mercado - inversionTotal;
+  const margenPct = inversionTotal > 0 ? (margen / inversionTotal * 100) : 0;
+  const resultEl = document.getElementById('calc-result');
+  if(!resultEl) return;
+
+  const claseColor = margen > 0 ? 'ok' : 'malo';
+  resultEl.innerHTML = `
+    <div class="calc-total"><span>Inversión total estimada</span><b>S/ ${inversionTotal.toLocaleString('es-PE')}</b></div>
+    <div class="calc-total"><span>Margen vs. valor de mercado</span><b class="${claseColor}">S/ ${margen.toLocaleString('es-PE')} (${margenPct.toFixed(0)}%)</b></div>
+  `;
 }
 
 function render(){
@@ -401,6 +535,15 @@ function render(){
     const isOpen = openCode === code;
     const estadoClass = d['Estado REMAJU']==='Activo' ? 'activo' : 'no-disp';
     const ubic = [d['Distrito Inmueble'], d['Provincia Inmueble'], d['Departamento Inmueble']].filter(Boolean).join(', ');
+    let fechaCol = escapeHtml(d['Fecha del remate']||'—');
+    if(d['Estado REMAJU']==='Activo'){
+      const cierre = horaCierre(d);
+      if(cierre){
+        const restante = cierre.getTime() - Date.now();
+        const cd = formatoContador(restante);
+        fechaCol = `<span class="cd ${cd.clase}">${cd.texto}</span>`;
+      }
+    }
     return `
     <div class="row" data-code="${escapeHtml(code)}">
       <div class="col-code">${escapeHtml((code||'').replace('Remate N° ','#'))}</div>
@@ -411,7 +554,7 @@ function render(){
       <div class="col-num">${money(d['Tasación'], d['Moneda Tasación'])}</div>
       <div class="col-num">${money(d['Precio Base'], d['Moneda Precio Base'])}</div>
       <div class="col-disc ${discount===null||discount<30?'low':''}">${discount!==null ? '-'+discount+'%' : '—'}</div>
-      <div class="col-num" style="font-size:12.5px;">${escapeHtml(d['Fecha del remate']||'—')}</div>
+      <div class="col-num" style="font-size:12.5px;">${fechaCol}</div>
       <div style="text-align:right;"><span class="badge ${estadoClass}">${d['Estado REMAJU']==='Activo'?'Activo':'Cerrado'}</span></div>
       <div class="chev">${isOpen?'▲':'▾'}</div>
     </div>
@@ -432,6 +575,17 @@ function render(){
       }
     });
   });
+
+  // Calculadora de viabilidad: si hay un detalle abierto, conecta los inputs
+  // y calcula el resultado inicial.
+  const calcInputs = document.querySelectorAll('.calc-grid input');
+  if(calcInputs.length){
+    calcInputs.forEach(inp=>{
+      inp.addEventListener('input', calcularViabilidad);
+      inp.addEventListener('click', e=>e.stopPropagation());
+    });
+    calcularViabilidad();
+  }
 }
 
 document.getElementById('search').addEventListener('input', e=>{ state.q = e.target.value; render(); });
@@ -448,6 +602,10 @@ document.querySelectorAll('#fEstado button').forEach(btn=>{
 });
 
 render();
+
+// Refresca los contadores de cierre cada 30s -- solo si no hay un detalle
+// abierto (para no perder lo que el usuario esté escribiendo en la calculadora).
+setInterval(()=>{ if(!openCode) render(); }, 30000);
 </script>
 </body>
 </html>
